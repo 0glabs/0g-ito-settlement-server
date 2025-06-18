@@ -59,7 +59,7 @@ RUN cargo install --git https://github.com/iden3/circom.git --rev 2eaaa6d --bin 
 # 激活 Python 环境，安装 Node.js 依赖并编译
 RUN source activate py38 && \
     cd circuits && \
-    wget -O pot19_final.ptau https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_19.ptau && \
+    wget -O pot21_final.ptau https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_21.ptau && \
     yarn install && \
     yarn compile && \
     yarn setup
@@ -111,4 +111,4 @@ RUN echo "Finished runner stage"
 
 # 启动应用程序并重定向日志，同时确保容器持续运行
 CMD nohup node src/server.js > logs/prover.log 2>&1 & \
-    tail -f logs/prover.log 
+    tail -f logs/prover.log

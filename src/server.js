@@ -19,7 +19,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-app.get('/sign-keypair', async (req, res) => {
+app.get('/sign-keypair', async (_, res) => {
     try {
         const { packPrivkey0, packPrivkey1, packedPubkey0, packedPubkey1 } = await genKeyPair();
         const responseBody = {
@@ -35,24 +35,26 @@ app.get('/sign-keypair', async (req, res) => {
 
 app.post('/signature', async (req, res) => {
     try {
-        const { requests, privkey } = req.body;
+        const { requests, privKey, signResponse } = req.body;
 
         // check required fields 
-        if (!requests || !privkey) {
+        if (!requests || !privKey || signResponse === undefined) {
             throw new Error('Missing required fields in request body');
         }
 
         const requestInstances = requests.map(data => new Request(
             data.nonce,
-            data.fee,
-            data.userAddress.toString(),
-            data.providerAddress.toString()
+            data.reqFee,
+            data.userAddress,
+            data.providerAddress,
+            data.requestHash,
+            data.resFee
         ));
-        console.log("privkey:", privkey);
-        const privkeyBigInt = [BigInt(privkey[0]), BigInt(privkey[1])];
-        const signatures = await signData(requestInstances, privkeyBigInt);
+        const privKeyBigInt = [BigInt(privKey[0]), BigInt(privKey[1])];
+        const signatures = await signData(requestInstances, privKeyBigInt, signResponse);
+        console.log('Signatures generated:', signatures);
         const responseBody = {
-            signatures: signatures
+            signatures: signatures,
         };
         res.setHeader('Content-Type', 'application/json');
         res.send(utils.jsonifyData(responseBody));
@@ -64,20 +66,23 @@ app.post('/signature', async (req, res) => {
 
 app.post('/check-sign', async (req, res) => {
     try {
-        const { requests, pubkey, signatures } = req.body;
+        const { requests, pubKey, signatures, signResponse } = req.body;
 
         // check required fields
-        if (!requests || !pubkey || !signatures) {
+        if (!requests || !pubKey || !signatures || signResponse === undefined) {
             throw new Error('Missing required fields in request body');
         }
 
         const requestInstances = requests.map(req => new Request(
             req.nonce,
-            req.fee,
+            req.reqFee,
             req.userAddress,
-            req.providerAddress
+            req.providerAddress,
+            req.requestHash,
+            req.resFee
         ));
-        const isValid = await verifySig(requestInstances, signatures, pubkey);
+        const isValid = await verifySig(requestInstances, signatures, pubKey, signResponse);
+  
         res.setHeader('Content-Type', 'application/json');
         res.send(isValid);
     } catch (error) {
@@ -88,29 +93,34 @@ app.post('/check-sign', async (req, res) => {
 
 async function genProofInput(requestBody) {
     // check required fields
-    const { requests, l, pubkey, signatures } = requestBody;
-    if (!requests || !l || !pubkey || !signatures) {
+    const { requests, l, reqPubkey, reqSignatures, resPubkey, resSignatures } = requestBody;
+    if (!requests || !l || !reqPubkey || !reqSignatures || !resPubkey || !resSignatures) {
         throw new Error('Missing required fields in request body');
     }
     // to json
     const requestInstances = requests.map(req => new Request(
         req.nonce,
-        req.fee,
+        req.reqFee,
         req.userAddress,
-        req.providerAddress
+        req.providerAddress,
+        req.requestHash,
+        req.resFee
     ));
 
-    return generateProofInput(requestInstances, l, pubkey, signatures);
+    return generateProofInput(requestInstances, l, reqPubkey, reqSignatures, resPubkey, resSignatures);
 }
 
 app.post('/proof-input', async (req, res) => {
     try {
         const result = await genProofInput(req.body);
         const responseBody = {
-            serializedRequest: result.serializedRequest,
-            signer: result.signer,
-            r8: result.r8,
-            s: result.s
+            serializedInput: result.serializedInput,
+            reqSigner: result.reqSigner,
+            resSigner: result.resSigner,
+            reqR8: result.reqR8,
+            reqS: result.reqS,
+            resR8: result.resR8,
+            resS: result.resS
         };
         res.setHeader('Content-Type', 'application/json');
         res.send(utils.jsonifyData(responseBody, true));
@@ -218,7 +228,7 @@ app.get('/vkey', async (req, res) => {
     }
 });
 
-app.get('/verifier-contract', async (req, res) => {
+app.get('/verifier-contract', async (_, res) => {
     console.log('Generating verifier contract');
     try {
         const verifierCode = await woker.getVerifierContract();
@@ -230,7 +240,7 @@ app.get('/verifier-contract', async (req, res) => {
     }
 });
 
-app.get('/batch-verifier-contract', async (req, res) => {
+app.get('/batch-verifier-contract', async (_, res) => {
     console.log('Generating verifier contract');
     try {
         const verifierCode = await woker.getVerifierContract(true);
