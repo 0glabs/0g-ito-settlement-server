@@ -1,0 +1,29 @@
+{
+  "name": "0g-zksettlement",
+  "version": "1.0.0",
+  "description": "ZK Settlement Server",
+  "main": "src/server.js",
+  "scripts": {
+    "compile": "sh ./scripts/compile.sh",
+    "setup": "node --max-old-space-size=8192 ./scripts/setup.js",
+    "start": "node ./src/server.js",
+    "dev": "node ./src/server.js",
+    "clean": "echo 'No build artifacts to clean'",
+    "format": "prettier --write \"src/**/*.{js,json}\" \"scripts/**/*.{js,json}\""
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "ffi-napi": "^4.0.3",
+    "fs-extra": "^10.0.0",
+    "snarkjs": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.12",
+    "prettier": "^3.6.1"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}
